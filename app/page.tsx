@@ -12,6 +12,7 @@ type PlacedItem = {
   name: string
   image: string
   category: Category
+  isTransparent: boolean
   x: number
   y: number
   width: number
@@ -27,6 +28,7 @@ type PanelItem = {
   image: string
   category: Category
   processing: boolean
+  isTransparent: boolean
 }
 
 type DropZone = {
@@ -107,6 +109,7 @@ export default function Page() {
         image: url,
         category: guessCategory(file.name),
         processing: true,
+        isTransparent: isLikelyPng,
       },
     ])
     setTimeout(() => {
@@ -150,6 +153,7 @@ export default function Page() {
         name: panelItem.name,
         image: panelItem.image,
         category: panelItem.category,
+        isTransparent: panelItem.isTransparent,
         x: snapX,
         y: snapY,
         width: snapWidth,
@@ -436,7 +440,9 @@ export default function Page() {
                     alt={item.name}
                     draggable={false}
                     className={`pointer-events-none h-full w-full object-contain ${
-                      item.blended ? 'contrast-105 brightness-95' : 'mix-blend-multiply'
+                      item.blended
+                        ? 'contrast-105 brightness-95'
+                        : item.isTransparent ? '' : 'mix-blend-multiply'
                     }`}
                     style={item.blended ? { filter: 'drop-shadow(0 8px 18px rgba(0,0,0,0.45)) contrast(1.08) saturate(1.05)' } : undefined}
                   />
@@ -717,7 +723,7 @@ function WardrobePanel({
                   <img
                     src={item.image}
                     alt={item.name}
-                    className="max-h-16 max-w-[80%] object-contain mix-blend-multiply"
+                    className={`max-h-16 max-w-[80%] object-contain ${item.isTransparent ? '' : 'mix-blend-multiply'}`}
                     draggable={false}
                   />
                   <span className="absolute bottom-1 left-1 right-1 truncate text-center text-[8px] text-white/40">
