@@ -1,6 +1,6 @@
 'use client'
 
-import type { KeyboardEvent, PointerEvent as ReactPointerEvent, RefObject } from 'react'
+import type { CSSProperties, KeyboardEvent, PointerEvent as ReactPointerEvent, RefObject } from 'react'
 import { motion } from 'framer-motion'
 
 import type { FittedGarment as Garment } from '@/lib/vton'
@@ -18,13 +18,14 @@ type Props = {
   onRemove: () => void
 }
 
-const MIN_WIDTH = 32
+const MIN_WIDTH = 24
 const CORNERS = [
   { key: 'tl', className: '-left-3 -top-3 cursor-nwse-resize' },
   { key: 'tr', className: '-right-3 -top-3 cursor-nesw-resize' },
   { key: 'bl', className: '-bottom-3 -left-3 cursor-nesw-resize' },
   { key: 'br', className: '-bottom-3 -right-3 cursor-nwse-resize' },
 ]
+const SNAP_TRANSITION = 'transition-[left,top,width,height,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]'
 
 export function FittedGarment({ garment, layer, selected, stageRef, onSelect, onChange, onRemove }: Props) {
   function startInteraction(e: ReactPointerEvent<HTMLElement>, mode: Mode) {
@@ -97,61 +98,106 @@ export function FittedGarment({ garment, layer, selected, stageRef, onSelect, on
     }
   }
 
-  return (
-    <motion.div
-      role="button"
-      tabIndex={0}
-      aria-label={`${garment.name}, layer ${layer}. Drag to move, use handles to resize or rotate.`}
-      aria-pressed={selected}
-      initial={{ opacity: 0, scale: 0.85 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-      onPointerDown={(e) => startInteraction(e, 'move')}
-      onFocus={onSelect}
-      onKeyDown={handleKeyDown}
-      className="absolute cursor-grab touch-none select-none outline-none active:cursor-grabbing"
-      style={{
-        left: garment.x,
-        top: garment.y,
-        width: garment.width,
-        height: garment.width / garment.aspect,
-        zIndex: layer,
-        translateX: '-50%',
-        translateY: '-50%',
-        rotate: garment.rotation,
-      }}
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={garment.src || '/placeholder.svg'}
-        alt=""
-        draggable={false}
-        className="pointer-events-none size-full object-contain drop-shadow-[0_12px_18px_rgba(0,0,0,0.55)]"
-      />
+  const box: CSSProperties = {
+    left: garment.x,
+    top: garment.y,
+    width: garment.width,
+    height: garment.width / garment.aspect,
+    transform: `translate(-50%, -50%) rotate(${garment.rotation}deg)`,
+  }
 
-      {selected && (
-        <>
-          <div aria-hidden className="pointer-events-none absolute inset-0 rounded-sm border border-primary/80" />
-          <div aria-hidden className="pointer-events-none absolute -top-8 left-1/2 h-8 w-px -translate-x-1/2 bg-primary/80" />
-          <span
-            aria-hidden
-            onPointerDown={(e) => startInteraction(e, 'rotate')}
-            className="absolute -top-12 left-1/2 flex size-7 -translate-x-1/2 cursor-grab items-center justify-center"
-          >
-            <span className="size-3.5 rounded-full border-2 border-primary bg-background shadow-md" />
-          </span>
-          {CORNERS.map((corner) => (
+  const imageFilter = garment.aiBlended
+    ? garment.whiteBackground
+      ? 'contrast(1.12) saturate(1.06) brightness(0.96)'
+      : 'contrast(1.1) saturate(1.05) brightness(0.97) drop-shadow(0 14px 16px rgba(0,0,0,0.5)) drop-shadow(0 2px 3px rgba(0,0,0,0.45))'
+    : garment.whiteBackground
+      ? undefined
+      : 'drop-shadow(0 12px 18px rgba(0,0,0,0.55))'
+
+  return (
+    <>
+      {/* Image layer: blends with the avatar below (multiply fakes a cut-out for white-backdrop photos). */}
+      <div
+        aria-hidden
+        className={cn('pointer-events-none absolute', garment.snapping && SNAP_TRANSITION)}
+        style={{ ...box, zIndex: layer * 2, mixBlendMode: garment.whiteBackground ? 'multiply' : 'normal' }}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.85 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          className="relative size-full"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={garment.src || '/placeholder.svg'}
+            alt=""
+            draggable={false}
+            className="size-full select-none object-contain transition-[filter] duration-700"
+            style={{ filter: imageFilter }}
+          />
+          {garment.aiBlended && (
             <span
-              key={corner.key}
+              className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,rgba(255,244,225,0.18),transparent_60%)] mix-blend-soft-light"
+              style={{
+                maskImage: `url(${garment.src})`,
+                maskSize: 'contain',
+                maskRepeat: 'no-repeat',
+                maskPosition: 'center',
+              }}
+            />
+          )}
+        </motion.div>
+      </div>
+
+      {/* Interaction frame: kept outside the blended layer so handles render at full contrast. */}
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label={`${garment.name}, layer ${layer}. Drag to move, use handles to resize or rotate.`}
+        aria-pressed={selected}
+        onPointerDown={(e) => startInteraction(e, 'move')}
+        onFocus={onSelect}
+        onKeyDown={handleKeyDown}
+        className={cn(
+          'absolute cursor-grab touch-none select-none outline-none active:cursor-grabbing',
+          garment.snapping && SNAP_TRANSITION,
+        )}
+        style={{ ...box, zIndex: selected ? 999 : layer * 2 + 1 }}
+      >
+        {garment.snapping && (
+          <motion.span
+            aria-hidden
+            initial={{ opacity: 0.9, scale: 1.15 }}
+            animate={{ opacity: 0, scale: 1 }}
+            transition={{ duration: 0.7 }}
+            className="pointer-events-none absolute inset-0 rounded-md border-2 border-primary"
+          />
+        )}
+        {selected && (
+          <>
+            <div aria-hidden className="pointer-events-none absolute inset-0 rounded-sm border border-primary/80" />
+            <div aria-hidden className="pointer-events-none absolute -top-8 left-1/2 h-8 w-px -translate-x-1/2 bg-primary/80" />
+            <span
               aria-hidden
-              onPointerDown={(e) => startInteraction(e, 'scale')}
-              className={cn('absolute flex size-6 items-center justify-center', corner.className)}
+              onPointerDown={(e) => startInteraction(e, 'rotate')}
+              className="absolute -top-12 left-1/2 flex size-7 -translate-x-1/2 cursor-grab items-center justify-center"
             >
-              <span className="size-2.5 rounded-[2px] border border-primary bg-background shadow-md" />
+              <span className="size-3.5 rounded-full border-2 border-primary bg-background shadow-md" />
             </span>
-          ))}
-        </>
-      )}
-    </motion.div>
+            {CORNERS.map((corner) => (
+              <span
+                key={corner.key}
+                aria-hidden
+                onPointerDown={(e) => startInteraction(e, 'scale')}
+                className={cn('absolute flex size-6 items-center justify-center', corner.className)}
+              >
+                <span className="size-2.5 rounded-[2px] border border-primary bg-background shadow-md" />
+              </span>
+            ))}
+          </>
+        )}
+      </div>
+    </>
   )
 }

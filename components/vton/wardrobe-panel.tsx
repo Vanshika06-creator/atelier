@@ -4,16 +4,20 @@ import { useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ImagePlus, Shirt } from 'lucide-react'
 
-import { WARDROBE_DRAG_TYPE, type WardrobeItem } from '@/lib/vton'
+import { WARDROBE_DRAG_TYPE, type WardrobeItem, type ZoneId } from '@/lib/vton'
+import { cn } from '@/lib/utils'
+
+const ZONE_LABELS: Record<ZoneId, string> = { head: 'Head', torso: 'Top', legs: 'Bottom', feet: 'Shoes' }
 
 type Props = {
   items: WardrobeItem[]
   pendingIds: string[]
   onUpload: (files: File[]) => void
   onTryOn: (itemId: string) => void
+  onDragItem: (itemId: string | null) => void
 }
 
-export function WardrobePanel({ items, pendingIds, onUpload, onTryOn }: Props) {
+export function WardrobePanel({ items, pendingIds, onUpload, onTryOn, onDragItem }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const isEmpty = items.length === 0 && pendingIds.length === 0
 
@@ -81,19 +85,34 @@ export function WardrobePanel({ items, pendingIds, onUpload, onTryOn }: Props) {
                 onDragStart={(e) => {
                   e.dataTransfer.setData(WARDROBE_DRAG_TYPE, item.id)
                   e.dataTransfer.effectAllowed = 'copy'
+                  onDragItem(item.id)
                 }}
+                onDragEnd={() => onDragItem(null)}
                 onClick={() => onTryOn(item.id)}
                 aria-label={`${item.name}. Drag onto avatar, or press to try on.`}
                 className="group flex h-36 w-28 cursor-grab flex-col overflow-hidden rounded-xl border border-border bg-background/60 text-left transition-all hover:-translate-y-0.5 hover:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 active:cursor-grabbing"
               >
-                <span className="flex flex-1 items-center justify-center bg-[radial-gradient(circle_at_center,oklch(0.25_0.01_75),transparent_75%)] p-2">
+                <span
+                  className={cn(
+                    'relative flex min-h-0 flex-1 items-center justify-center p-2',
+                    item.whiteBackground
+                      ? 'bg-foreground'
+                      : 'bg-[radial-gradient(circle_at_center,oklch(0.25_0.01_75),transparent_75%)]',
+                  )}
+                >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={item.src || '/placeholder.svg'}
                     alt=""
                     draggable={false}
-                    className="max-h-24 max-w-full object-contain transition-transform duration-300 group-hover:scale-105"
+                    className={cn(
+                      'max-h-20 max-w-full object-contain transition-transform duration-300 group-hover:scale-105',
+                      item.whiteBackground && 'mix-blend-multiply',
+                    )}
                   />
+                  <span className="absolute left-1.5 top-1.5 rounded-full bg-background/85 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-primary">
+                    {item.zone ? ZONE_LABELS[item.zone] : 'Free'}
+                  </span>
                 </span>
                 <span className="truncate border-t border-border px-2.5 py-1.5 text-[11px] text-muted-foreground">
                   {item.name}
