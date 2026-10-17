@@ -1,10 +1,19 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
+import { Cormorant_Garamond, Inter } from 'next/font/google'
 import './globals.css'
 
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
+const cormorant = Cormorant_Garamond({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  variable: '--font-cormorant',
+})
+
 export const metadata: Metadata = {
-  title: 'Atelier — Virtual Closet',
-  description: 'Build, arrange, and save your next favorite outfit.',
+  title: 'Atelier — Virtual Try-On Fitting Room',
+  description:
+    'Create a lifelike digital avatar from a full-body photo, upload your clothes, and try on outfits by dragging, layering and fitting each piece.',
   generator: 'v0.app',
   icons: {
     icon: [
@@ -26,11 +35,8 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  colorScheme: 'light dark',
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: 'white' },
-    { media: '(prefers-color-scheme: dark)', color: 'black' },
-  ],
+  colorScheme: 'dark',
+  themeColor: '#151311',
 }
 
 export default function RootLayout({
@@ -39,8 +45,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body className="antialiased">
+    <html lang="en" className={`dark ${inter.variable} ${cormorant.variable}`}>
+      <body className="font-sans antialiased">
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
